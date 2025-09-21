@@ -1,0 +1,6 @@
+#ifndef BUILDINFO_H
+#define BUILDINFO_H
+#define FIRMWARE_VERSION "ESP32 MIGRADO"
+#define BUILD_DATE __DATE__
+#define BUILD_TIME __TIME__
+#endif
