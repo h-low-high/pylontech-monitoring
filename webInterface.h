@@ -192,6 +192,10 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
       "button.module{padding:8px 12px;margin:4px;border-radius:8px;font-size:13px;font-weight:600}"
       "button.module.active{background:#10b981;color:#fff}"
       "button.module.inactive{background:#e2e8f0;color:#64748b;cursor:not-allowed}"
+      "button.utility-btn{padding:8px 12px;margin:2px;background:#10b981;color:#fff;border:0;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}"
+      "button.utility-btn:hover{background:#059669}"
+      "button.utility-btn.danger{background:#ef4444}"
+      "button.utility-btn.danger:hover{background:#dc2626}"
       ".module-selector{margin-bottom:16px;padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px}"
       ".module-title{font-weight:700;margin-bottom:12px;color:#334155}"
       "a.link{color:#0ea5e9;text-decoration:none;font-weight:700}"
@@ -304,12 +308,43 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
               "</div>"
               "<div id='console' class='terminal'></div></div>");
 
+    // Utilidades y Debugs
+    html += F("<div class='card' style='margin-top:18px'>"
+              "<div class='title'>Utilidades y Debugs "
+              "<button class='secondary' style='float:right;padding:4px 8px;font-size:12px' onclick='toggleUtilities()'>Mostrar/Ocultar</button>"
+              "</div>"
+              "<div id='utilitiesSection' style='display:none'>"
+              "<div style='margin-bottom:15px'>"
+              "<h4 style='margin:0 0 8px 0;font-size:14px;color:#374151'>🔧 Sistema</h4>"
+              "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px'>"
+              "<button class='utility-btn' onclick='openUtility(\"/restart\")'>🔄 Reiniciar ESP</button>"
+              "<button class='utility-btn' onclick='openUtility(\"/time-info\")'>🕒 Info Tiempo</button>"
+              "<button class='utility-btn' onclick='openUtility(\"/version-check\")'>📋 Versión</button>"
+              "</div>"
+              "<h4 style='margin:0 0 8px 0;font-size:14px;color:#374151'>🔍 Debugs</h4>"
+              "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px'>"
+              "<button class='utility-btn' onclick='openUtility(\"/debug-batteries\")'>🔋 Debug Baterías</button>"
+              "<button class='utility-btn' onclick='openUtility(\"/debug-history\")'>📊 Debug Historial</button>"
+              "<button class='utility-btn' onclick='openUtility(\"/battery-data\")'>📈 Datos BMS</button>"
+              "</div>"
+              "<h4 style='margin:0 0 8px 0;font-size:14px;color:#374151'>⚡ Acciones</h4>"
+              "<div style='display:flex;flex-wrap:wrap;gap:8px'>"
+              "<button class='utility-btn' onclick='forceRecord()'>💾 Grabar Ahora</button>"
+              "<button class='utility-btn danger' onclick='confirmClearHistory()'>🗑️ Vaciar Historial</button>"
+              "<button class='utility-btn' onclick='openUtility(\"/balance-history\")'>📋 Ver JSON Historial</button>"
+              "</div>"
+              "</div>"
+              "<div id='utilityResult' style='margin-top:15px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;display:none'>"
+              "<pre id='utilityContent' style='margin:0;font-size:12px;white-space:pre-wrap'></pre>"
+              "</div>"
+              "</div></div>");
+
     // Bloque oculto con la última respuesta para que el JS la recoja
     html += F("<div id='hidden'><h3>Respuesta</h3><pre>");
     html += lastCommandOutput;
     html += F("</pre></div>");
 
-    html += F("<div class='foot'>UI inspirada en la del repositorio original.</div>");
+    html += F("<div class='foot'>DEV BY: https://github.com/h-low-high/pylontech-monitoring</div>");
 
     // JS
     html += F("<script>"
@@ -541,6 +576,58 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
         "});"
       "}"
       "function clearHistory(){"
+        "if(confirm('¿Estás seguro de que quieres vaciar todo el historial?\\n\\nEsta acción NO se puede deshacer.')){"
+          "if(confirm('CONFIRMACIÓN FINAL: Se eliminarán TODOS los datos históricos permanentemente.')){"
+            "fetch('/clear-history', {method: 'POST'})"
+            ".then(response => {"
+              "if(response.ok){"
+                "alert('Historial vaciado correctamente');"
+                "refreshHistory();"
+              "}else{"
+                "alert('Error al vaciar el historial');"
+              "}"
+            "})"
+            ".catch(error => {"
+              "alert('Error de conexión: ' + error);"
+            "});"
+          "}"
+        "}"
+      "}"
+      "function toggleUtilities(){"
+        "const section = document.getElementById('utilitiesSection');"
+        "section.style.display = section.style.display === 'none' ? 'block' : 'none';"
+      "}"
+      "function openUtility(endpoint){"
+        "const resultDiv = document.getElementById('utilityResult');"
+        "const contentPre = document.getElementById('utilityContent');"
+        "resultDiv.style.display = 'block';"
+        "contentPre.textContent = 'Cargando...';"
+        "fetch(endpoint)"
+        ".then(response => response.text())"
+        ".then(data => {"
+          "try {"
+            "const jsonData = JSON.parse(data);"
+            "contentPre.textContent = JSON.stringify(jsonData, null, 2);"
+          "} catch(e) {"
+            "contentPre.textContent = data;"
+          "}"
+        "})"
+        ".catch(error => {"
+          "contentPre.textContent = 'Error: ' + error;"
+        "});"
+      "}"
+      "function forceRecord(){"
+        "fetch('/record-now', {method: 'POST'})"
+        ".then(response => response.text())"
+        ".then(data => {"
+          "alert('Grabación forzada: ' + data);"
+          "refreshHistory();"
+        "})"
+        ".catch(error => {"
+          "alert('Error: ' + error);"
+        "});"
+      "}"
+      "function confirmClearHistory(){"
         "if(confirm('¿Estás seguro de que quieres vaciar todo el historial?\\n\\nEsta acción NO se puede deshacer.')){"
           "if(confirm('CONFIRMACIÓN FINAL: Se eliminarán TODOS los datos históricos permanentemente.')){"
             "fetch('/clear-history', {method: 'POST'})"
@@ -1116,14 +1203,36 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
   // ---------- /record-now: force immediate balance recording ----------
   server.on("/record-now", [&server, batteryData]()
             {
-    unsigned long currentTime = millis();
+    extern unsigned long getCurrentTimestamp();
+    unsigned long currentTime = getCurrentTimestamp();
     
-    // Call the real recording function instead of dummy data
+    Serial.println("[FORCE RECORD] Manually forcing balance history recording...");
+    
+    // Call the real recording function with real timestamp
     batteryData->recordBalanceHistory(currentTime);
     batteryData->updateLastSaveTime(currentTime);
     
-    // Completely different response to ensure we detect the change
+    // Save to flash
+    if (batteryData->saveBalanceHistory()) {
+      Serial.println("[FORCE RECORD] History saved to flash successfully");
+    } else {
+      Serial.println("[FORCE RECORD] Failed to save history to flash");
+    }
+    
+    // Response with real timestamp
     String response = "{\"status\":\"OK\",\"action\":\"REAL_DATA_RECORDED\",\"version\":\"2024_UPDATE\",\"timestamp\":" + String(currentTime) + ",\"entries\":" + String(batteryData->history.entryCount) + "}";
+    
+    server.send(200, "application/json", response); });
+
+  // ---------- /force-update: force battery data update ----------
+  server.on("/force-update", [&server]()
+            {
+    extern void updateBatteryData();
+    
+    Serial.println("[FORCE UPDATE] Manually forcing battery data update...");
+    updateBatteryData();
+    
+    String response = "{\"status\":\"OK\",\"action\":\"FORCE_UPDATE_COMPLETED\",\"timestamp\":" + String(millis()) + "}";
     
     server.send(200, "application/json", response); });
 

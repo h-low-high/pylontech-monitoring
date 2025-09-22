@@ -41,8 +41,8 @@ Sistema completo de monitoreo para baterías Pylontech usando ESP32/ESP8266 con 
 - Mini 3.3V → VCC del MAX3232
 
 **NOTA: para programar la primera vez con arduino IDE, desconecta el positivo por ejemplo del modulo max3232 contra el ESP, si no no funcionará. Posteriormente programa via OTA. 
-Se debe a la gestion de puertos, no es posible usar los UART de placa de arduino y el USB.
-   
+Se debe a la gestión de puertos, no es posible usar los UART de placa de arduino y el USB.
+
 
 **Conexiones MAX3232 → RJ45 (Topología B):**
 - R1IN del MAX3232 → Pin 3 (Blanco/Verde) - RX desde Pylontech
@@ -179,72 +179,6 @@ La página de configuración incluye:
 - **Máscara de subred** - Normalmente 255.255.255.0
 - **DNS** - Servidor DNS (ej: 8.8.8.8)
 
-### Gestión de Configuraciones
-
-#### **Prioridad de Conexión:**
-1. **Configuración del portal** (almacenada en LittleFS)
-2. **Configuración hardcoded** (definida en `PylontechMonitoring.h`)
-3. **Modo AP de configuración** (si ambas fallan)
-
-#### **Recuperación Automática:**
-- **Reconexión automática** si se pierde la conexión WiFi
-- **Reintentos inteligentes** con diferentes configuraciones
-- **Fallback a AP** si no se puede conectar tras varios intentos
-
-
-## Ejemplos de Configuración
-
-### Configuración Básica (Solo WiFi)
-```cpp
-// En PylontechMonitoring.h
-#define WIFI_SSID "MiRedWiFi"
-#define WIFI_PASS "MiContraseña123"
-#define WIFI_HOSTNAME "PylontechESP32"
-
-// Comentar para usar DHCP
-// #define STATIC_IP
-
-// Comentar para desactivar autenticación
-// #define AUTHENTICATION
-
-// Comentar para desactivar MQTT
-// #define DISABLE_MQTT
-```
-
-### Configuración con IP Estática
-```cpp
-// En PylontechMonitoring.h
-#define STATIC_IP
-IPAddress ip(192, 168, 1, 100);        // IP deseada para el ESP32
-IPAddress gateway(192, 168, 1, 1);     // IP del router
-IPAddress subnet(255, 255, 255, 0);    // Máscara de red estándar
-IPAddress dns(192, 168, 1, 1);         // DNS (normalmente el router)
-```
-
-### Configuración con Autenticación Web
-```cpp
-// En PylontechMonitoring.h
-#define AUTHENTICATION
-const char* www_username = "admin";
-const char* www_password = "mipassword123";  // ¡Cambiar por una contraseña segura!
-```
-
-### Configuración MQTT Completa
-```cpp
-// En PylontechMonitoring.h
-#define MQTT_SERVER        "192.168.1.50"      // IP del broker MQTT
-#define MQTT_PORT          1883
-#define MQTT_USER          "homeassistant"
-#define MQTT_PASSWORD      "mqtt_password"
-#define MQTT_TOPIC_ROOT    "energia/baterias/"
-#define MQTT_PUSH_FREQ_SEC 30                  // Enviar cada 30 segundos
-```
-
-### Configuración de Contraseña OTA
-```cpp
-// En PylontechMonitor_ESP32E_Display.ino (línea ~90)
-ArduinoOTA.setPassword("mi_ota_password_seguro");  // ¡Cambiar por contraseña segura!
-```
 
 ### Análisis de Salud de Baterías
 Sistema proactivo de monitoreo específico para baterías LiFePO4:
@@ -254,21 +188,36 @@ Sistema proactivo de monitoreo específico para baterías LiFePO4:
 - **Advertencia:** 40-60mV de diferencia 
 - **Crítico:** >60mV de diferencia
 
-#### Información Detallada:
-- Número total de celdas monitoreadas
-- Voltaje máximo y mínimo entre celdas
-- Diferencia exacta en milivolts
-- Mensaje descriptivo del estado
-- Tooltip informativo con detalles específicos de celda
-
-### Diseño Responsive
-- **Desktop:** Layout de 4 columnas con tarjetas grandes
-- **Tablet:** Layout adaptativo de 2 columnas
-- **Mobile:** Layout de 1 columna con elementos optimizados
-- **Terminal Móvil:** Scroll horizontal con hints visuales
 
 #### Capturas de Pantalla:
  ![alt text](web-1.png) ![alt text](command-1.png) ![alt text](inform-1.png)
+
+## Histórico de Balance (72 Horas)
+
+El sistema incluye un **sistema de registro histórico** que almacena automáticamente los datos de balance de las baterías para análisis de tendencias y monitoreo a largo plazo.
+![alt text](image.png)
+
+### Características del Histórico
+
+#### **Sincronización de Tiempo:**
+- **Sincronización NTP automática** con pool.ntp.org
+- **Zona horaria configurada** para Madrid, España (UTC+2 CEST - horario de verano)
+- **Resincronización cada hora** para mantener precisión
+- **Timestamps Unix reales** en lugar de tiempo relativo
+- **Endpoint `/time-info`** para verificar estado del tiempo
+
+#### **Datos Registrados Automáticamente:**
+- **ID de Batería** (1-16)
+- **Diferencia de Balance** en mV (voltaje máximo - mínimo por batería)
+- **Estado de Carga (SOC)** en porcentaje
+- **Timestamp** con fecha y hora exacta (tiempo real NTP)
+
+
+¡
+#### **Alertas Visuales:**
+- **Normal (≤40mV)** - Verde, funcionamiento óptimo
+- **Advertencia (40-60mV)** - Amarillo, revisar pronto
+- **Crítico (>60mV)** - Rojo, atención inmediata requerida
 
 
 
@@ -300,74 +249,6 @@ Sistema proactivo de monitoreo específico para baterías LiFePO4:
 - **Uso:** Vista individual de baterías
 - **Datos:** Estado operacional, temperaturas
 
-## Uso de la Interfaz
-
-### Botones de Navegación:
-- **"Sistema":** Vista consolidada de todas las baterías
-- **"Batería X":** Vista individual del módulo específico
-- **Detección Automática:** Solo aparecen los módulos conectados
-
-### Tarjetas de Información:
-1. **Estado de Carga (SOC):** Porcentaje con barra visual
-2. **Voltaje:** Voltaje total del pack/módulo
-3. **Corriente:** Corriente actual (carga/descarga)
-4. **Potencia:** Potencia instantánea calculada
-5. **Temperatura:** Promedio del sistema o módulo
-6. **Salud Celdas:** Estado de balance con tooltip informativo
-
-### Terminal BMS:
-- **Datos en Tiempo Real:** Actualización cada 3 segundos
-- **Scroll Horizontal:** En móviles, deslizar para ver todos los datos
-- **Colores Informativos:** Cada tipo de dato tiene su color
-- **Formato Estructurado:** Headers y separadores visuales
-
-### Tooltip de Información:
-- **Activación:** Pasar el ratón sobre el icono "i" en Salud Celdas
-- **Contenido:** Detalles específicos de voltajes por celda
-- **Información:** Celda con mayor/menor voltaje y diferencias exactas
-
-## Características Técnicas
-
-### Comunicación Serial:
-- **Protocolo:** ASCII comandos a 9600 baud
-- **Timeout:** 5 segundos por comando
-- **Buffer:** Optimizado para respuestas largas
-
-
-## Histórico de Balance (72 Horas)
-
-El sistema incluye un **sistema de registro histórico** que almacena automáticamente los datos de balance de las baterías para análisis de tendencias y monitoreo a largo plazo.
-![alt text](image.png)
-
-### Características del Histórico
-
-#### **Sincronización de Tiempo:**
-- **Sincronización NTP automática** con pool.ntp.org
-- **Zona horaria configurada** para Madrid, España (UTC+2 CEST - horario de verano)
-- **Resincronización cada hora** para mantener precisión
-- **Timestamps Unix reales** en lugar de tiempo relativo
-- **Endpoint `/time-info`** para verificar estado del tiempo
-
-#### **Datos Registrados Automáticamente:**
-- **ID de Batería** (1-16)
-- **Diferencia de Balance** en mV (voltaje máximo - mínimo por batería)
-- **Estado de Carga (SOC)** en porcentaje
-- **Timestamp** con fecha y hora exacta (tiempo real NTP)
-
-
-¡
-#### **Alertas Visuales:**
-- **Normal (≤40mV)** - Verde, funcionamiento óptimo
-- **Advertencia (40-60mV)** - Amarillo, revisar pronto
-- **Crítico (>60mV)** - Rojo, atención inmediata requerida
-
-
-#### **Limpieza Manual de Datos:**
-Para borrar completamente el histórico de balance almacenado:
-
-- **URL de Limpieza:** `http://IP_DEL_ESP32/clear-history`
-- **Función:** Elimina todos los datos históricos del sistema de archivos
-**Nota:** Esta acción no se puede deshacer. Los datos eliminados no son recuperables.
 
 
 

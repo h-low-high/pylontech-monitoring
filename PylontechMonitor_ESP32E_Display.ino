@@ -112,6 +112,8 @@ static void setupOTA()
 // Function to update battery data array from BMS commands
 void updateBatteryData()
 {
+  Serial.println("[BATTERY UPDATE] Starting battery data update...");
+  
   // Clear all battery data first
   for (int i = 0; i < MAX_PYLON_BATTERIES_SUPPORTED; i++)
   {
@@ -124,93 +126,99 @@ void updateBatteryData()
     stack.batts[i].cellVoltLow = 0;
   }
 
-  // Get battery data using the same logic as /battery-data endpoint
+  // Use the exact same parsing logic as the working /battery-data endpoint
   String raw = _bmsSendCmd("bat", 4000);
+  Serial.print("[BATTERY UPDATE] Raw response length: ");
+  Serial.println(raw.length());
+  
+  if (raw.length() < 10) {
+    Serial.println("[BATTERY UPDATE] Response too short, aborting");
+    return;
+  }
 
-  // Parse the 'bat' command response
-  int cells = 0;
-  long sum_mV = 0;
-  long sum_mA = 0;
-  long sum_mC = 0;
-  long sum_soc = 0;
-  long maxVoltage = 0;
-  long minVoltage = 99999;
+  // Parse exactly like the working endpoint
+  int cellCount = 0;
+  long sumMv = 0, sumMa = 0, sumMc = 0, sumSoc = 0;
+  long maxCellV = 0, minCellV = 999999;
 
-  int start = 0;
-  while (start < (int)raw.length())
-  {
-    int end = raw.indexOf('\n', start);
-    String line = (end < 0) ? raw.substring(start) : raw.substring(start, end);
-    start = (end < 0) ? raw.length() : end + 1;
+  int pos = 0;
+  while (pos < (int)raw.length()) {
+    int nl = raw.indexOf('\n', pos);
+    if (nl < 0) nl = raw.length();
+    
+    String line = raw.substring(pos, nl);
     line.trim();
+    pos = nl + 1;
 
-    if (line.length() == 0 || !isDigit(line[0]))
-      continue;
+    if (line.length() == 0 || !isDigit(line[0])) continue;
 
-    // Parse line: cell_id voltage current temp soc%
-    const char *s = line.c_str();
-    long vals[4];
-    int n = 0;
-    while (*s && n < 4)
-    {
-      while (*s && !((*s == '-') || (*s >= '0' && *s <= '9')))
-        s++;
-      if (!*s)
-        break;
-      char *end;
-      long v = strtol(s, &end, 10);
-      vals[n++] = v;
-      s = end;
+    Serial.print("[BATTERY UPDATE] Processing: ");
+    Serial.println(line);
+
+    // Parse: cell_id voltage current temp soc%
+    const char* s = line.c_str();
+    long values[4];
+    int valueCount = 0;
+    
+    // Extract 4 numeric values
+    while (*s && valueCount < 4) {
+      while (*s && !isDigit(*s) && *s != '-') s++;
+      if (!*s) break;
+      
+      char* endPtr;
+      values[valueCount++] = strtol(s, &endPtr, 10);
+      s = endPtr;
     }
 
-    if (n >= 4)
-    {
-      long mv = vals[1]; // voltage in mV
-      long ma = vals[2]; // current in mA
-      long mC = vals[3]; // temperature in mC
+    if (valueCount >= 4) {
+      long cellVoltage = values[1];  // mV
+      long cellCurrent = values[2];  // mA  
+      long cellTemp = values[3];     // mC
 
-      // Extract SOC from line (number before %)
-      int pcent = line.indexOf('%');
-      int soc = 0;
-      if (pcent > 0)
-      {
-        int pnum = pcent - 1;
-        while (pnum >= 0 && isDigit(line[pnum]))
-          pnum--;
-        pnum++;
-        soc = line.substring(pnum, pcent).toInt();
+      // Extract SOC percentage
+      int percentPos = line.indexOf('%');
+      int socValue = 0;
+      if (percentPos > 0) {
+        String socStr = "";
+        for (int i = percentPos - 1; i >= 0 && isDigit(line[i]); i--) {
+          socStr = line[i] + socStr;
+        }
+        socValue = socStr.toInt();
       }
 
-      cells++;
-      sum_mV += mv;
-      sum_mA += ma;
-      sum_mC += mC;
-      sum_soc += soc;
+      cellCount++;
+      sumMv += cellVoltage;
+      sumMa += cellCurrent;
+      sumMc += cellTemp;
+      sumSoc += socValue;
 
-      // Track min/max voltages for balance calculation
-      if (mv > maxVoltage)
-        maxVoltage = mv;
-      if (mv < minVoltage)
-        minVoltage = mv;
+      if (cellVoltage > maxCellV) maxCellV = cellVoltage;
+      if (cellVoltage < minCellV) minCellV = cellVoltage;
+
+      Serial.printf("[BATTERY UPDATE] Cell %d: V=%ldmV, I=%ldmA, T=%ldmC, SOC=%d%%\n", 
+                    cellCount, cellVoltage, cellCurrent, cellTemp, socValue);
     }
   }
 
-  // If we found cells, populate the first battery slot with aggregated data
-  if (cells > 0)
-  {
+  // Populate battery data if we found cells
+  if (cellCount > 0) {
     stack.batts[0].isPresent = true;
-    stack.batts[0].soc = sum_soc / cells;     // Average SOC
-    stack.batts[0].voltage = sum_mV;          // Total voltage in mV
-    stack.batts[0].current = sum_mA / cells;  // Average current in mA
-    stack.batts[0].tempr = sum_mC / cells;    // Average temperature in mC
-    stack.batts[0].cellVoltHigh = maxVoltage; // Highest cell voltage
-    stack.batts[0].cellVoltLow = minVoltage;  // Lowest cell voltage
+    stack.batts[0].soc = sumSoc / cellCount;
+    stack.batts[0].voltage = sumMv / 1000.0;  // Convert mV to V
+    stack.batts[0].current = sumMa / 1000.0;  // Convert mA to A
+    stack.batts[0].tempr = sumMc / 1000.0;    // Convert mC to C
+    stack.batts[0].cellVoltHigh = maxCellV;
+    stack.batts[0].cellVoltLow = minCellV;
 
-    Serial.print("[BATTERY UPDATE] Updated battery 1: SOC=");
-    Serial.print(stack.batts[0].soc);
-    Serial.print("%, Balance=");
-    Serial.print(maxVoltage - minVoltage);
-    Serial.println("mV");
+    Serial.printf("[BATTERY UPDATE] SUCCESS! Battery 1 populated:\n");
+    Serial.printf("  - SOC: %d%%\n", stack.batts[0].soc);
+    Serial.printf("  - Voltage: %.3fV\n", stack.batts[0].voltage);
+    Serial.printf("  - Current: %.3fA\n", stack.batts[0].current);
+    Serial.printf("  - Temperature: %.1f°C\n", stack.batts[0].tempr);
+    Serial.printf("  - Balance: %ldmV\n", maxCellV - minCellV);
+    Serial.printf("  - Cells: %d\n", cellCount);
+  } else {
+    Serial.println("[BATTERY UPDATE] ERROR: No valid cells found in response");
   }
 }
 
