@@ -103,12 +103,6 @@ Para proteger la interfaz web con usuario y contraseña:
 | `MQTT_TOPIC_ROOT` | PylontechMonitoring.h | Raíz de topics MQTT | `"pylontech/sensor/"` |
 | `MQTT_PUSH_FREQ_SEC` | PylontechMonitoring.h | Frecuencia envío datos (segundos) | `10` |
 
-### Variables del Sistema
-
-| Variable | Archivo | Descripción | Ejemplo |
-|----------|---------|-------------|---------|
-| `GMT` | PylontechMonitoring.h | Zona horaria en segundos desde UTC | `7200` (UTC+2) |
-| `MAX_PYLON_BATTERIES` | PylontechMonitoring.h | Número máximo de baterías a detectar | `6` |
 
 ## 📡 Portal Cautivo WiFi - Configuración Automática
 
@@ -399,7 +393,7 @@ Sistema proactivo de monitoreo específico para baterías LiFePO4:
 - **Cache:** Sin cache para datos en tiempo real
 - **CORS:** Configurado para desarrollo
 
-## 📊 Histórico de Balance Diario
+## 📊 Histórico de Balance (72 Horas)
 
 El sistema incluye un **sistema de registro histórico** que almacena automáticamente los datos de balance de las baterías para análisis de tendencias y monitoreo a largo plazo.
 
@@ -415,7 +409,7 @@ El sistema incluye un **sistema de registro histórico** que almacena automátic
 | Parámetro | Valor | Descripción |
 |-----------|-------|-------------|
 | **Frecuencia de Registro** | 15 minutos | Captura automática cada 15 min |
-| **Capacidad Máxima** | 96 entradas | 24 horas completas de datos |
+| **Capacidad Máxima** | 288 entradas | 72 horas completas de datos |
 | **Tipo de Buffer** | Circular | Los datos antiguos se sobrescriben |
 | **Persistencia** | LittleFS | Datos sobreviven reinicios |
 | **Archivo de Datos** | `/balance_history.dat` | Almacenamiento binario optimizado |
@@ -424,12 +418,12 @@ El sistema incluye un **sistema de registro histórico** que almacena automátic
 ### 🌐 Interfaz Web del Histórico
 
 #### **Acceso a la Información:**
-- **Ubicación:** Sección "Histórico de Balance Diario" en la página principal
+- **Ubicación:** Sección "Histórico de Balance (72h)" en la página principal
 - **Visibilidad:** Botón "Mostrar/Ocultar" para expandir la sección
 - **Actualización:** Botón "Actualizar" para recargar datos más recientes
 
 #### **Funcionalidades de la Tabla:**
-- ✅ **Tabla Scrolleable** - Ver hasta 96 entradas con scroll vertical
+- ✅ **Tabla Scrolleable** - Ver hasta 288 entradas con scroll vertical
 - ✅ **Filtro por Batería** - Dropdown para mostrar solo una batería específica
 - ✅ **Código de Colores** - Estados visuales (Normal/Advertencia/Crítico)
 - ✅ **Exportación CSV** - Descargar datos para análisis externo
@@ -468,8 +462,8 @@ GET /balance-history
       "socPercent": 84
     }
   ],
-  "totalEntries": 48,
-  "maxEntries": 96,
+  "totalEntries": 144,
+  "maxEntries": 288,
   "currentTime": 1695654000000
 }
 ```
@@ -480,6 +474,16 @@ GET /balance-history
 - 🔍 **Tendencias de Degradación** - Aumento progresivo del desbalance
 - ⚠️ **Problemas Emergentes** - Celdas que comienzan a desbalancearse
 - 📊 **Correlación SOC-Balance** - Relación entre carga y equilibrio
+- 📈 **Ciclos Completos** - Monitoreo de múltiples ciclos de carga/descarga
+- 🔄 **Patrones Diarios** - Comparación entre días consecutivos
+- ⏰ **Horarios Críticos** - Identificación de momentos problemáticos
+
+#### **Ventajas de 72 Horas:**
+- **📅 3 Días Completos** - Análisis de tendencias a corto/medio plazo
+- **🔄 Múltiples Ciclos** - Observar varios ciclos de carga completos
+- **📊 Comparación Temporal** - Ver el mismo horario en diferentes días
+- **⚡ Detección Temprana** - Identificar problemas antes que se agraven
+- **📈 Memoria Eficiente** - Solo ~2.8KB de RAM para 288 entradas
 - 🕒 **Comportamiento Temporal** - Patrones según hora del día
 
 #### **Alertas Visuales:**
@@ -511,7 +515,7 @@ const unsigned long RECORD_INTERVAL = 15 * 60 * 1000; // 15 minutos
 #### **Cambiar Capacidad del Buffer:**
 En `batteryStack.h`, línea ~9:
 ```cpp
-#define MAX_BALANCE_HISTORY_ENTRIES 96 // 24 horas x 4 por hora
+#define MAX_BALANCE_HISTORY_ENTRIES 288 // 72 horas x 4 por hora
 ```
 
 #### **Personalizar Respaldos:**

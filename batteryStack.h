@@ -5,8 +5,8 @@
 #ifndef BATTERYSTACK_H
 #define BATTERYSTACK_H
 
-// Maximum daily history entries (24 hours * 4 entries per hour = 96)
-#define MAX_BALANCE_HISTORY_ENTRIES 96
+// Maximum history entries (72 hours * 4 entries per hour = 288)
+#define MAX_BALANCE_HISTORY_ENTRIES 288
 
 // Structure to store balance history entry
 struct balanceHistoryEntry
