@@ -147,31 +147,17 @@ void loop()
     // Don't return here - we can still do basic tasks like recording history
   }
 
-  // Check if we should record balance history (every 2 minutes for testing)
+  // Check if we should record balance history (every 15 minutes)
   unsigned long currentTime = millis();
   if (stack.shouldRecordHistory(currentTime))
   {
     Serial.println("[HISTORY] Recording balance history...");
 
-    // Add some dummy data for testing if no real data available
-    // In real implementation, this should be actual battery data
-    for (int i = 1; i <= 3; i++)
-    {                                        // Simulate 3 batteries
-      int16_t dummyBalance = random(20, 80); // Random balance between 20-80mV
-      uint8_t dummySoc = random(70, 95);     // Random SOC between 70-95%
-      stack.history.addEntry(i, dummyBalance, dummySoc, currentTime);
-      Serial.print("[HISTORY] Added entry for battery ");
-      Serial.print(i);
-      Serial.print(": Balance=");
-      Serial.print(dummyBalance);
-      Serial.print("mV, SOC=");
-      Serial.print(dummySoc);
-      Serial.println("%");
-    }
-
+    // Record actual battery data
+    stack.recordBalanceHistory(currentTime);
     stack.updateLastSaveTime(currentTime);
 
-    // Save to persistent storage every 4 records (8 minutes with 2min interval)
+    // Save to persistent storage every 4 records (1 hour with 15min interval)
     static uint8_t saveCounter = 0;
     saveCounter++;
     if (saveCounter >= 4)

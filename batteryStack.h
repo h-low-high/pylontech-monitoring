@@ -155,7 +155,7 @@ struct batteryStack
   // Check if it's time to record (every 15 minutes)
   bool shouldRecordHistory(unsigned long currentTime)
   {
-    const unsigned long RECORD_INTERVAL = 2 * 60 * 1000; // 2 minutes for testing (change to 15 * 60 * 1000 for production)
+    const unsigned long RECORD_INTERVAL = 15 * 60 * 1000; // 15 minutes for production
 
     // Force first record after 30 seconds of startup
     if (history.lastSaveTime == 0 && currentTime > 30000)
