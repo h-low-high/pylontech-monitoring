@@ -55,7 +55,7 @@ static bool _bmsWaitPrompt(uint32_t timeout_ms, String *rawOut = nullptr)
 // Cambia a true si tu firmware exige CRLF
 #define USE_CRLF false
 
-static String _bmsSendCmd(const String &cmd, uint32_t timeout_ms = 3000)
+String _bmsSendCmd(const String &cmd, uint32_t timeout_ms = 3000)
 {
   // “Despierta” y limpia
   while (Serial2.available())
@@ -253,6 +253,38 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
 
     html += F("</div>"); // grid
 
+    // Balance History Section
+    html += F("<div class='card' style='margin-top:18px'>"
+              "<div class='title'>Histórico de Balance Diario "
+              "<button class='secondary' style='float:right;padding:4px 8px;font-size:12px' onclick='toggleHistory()'>Mostrar/Ocultar</button>"
+              "</div>"
+              "<div id='historySection' style='display:none'>"
+              "<div class='row' style='margin-bottom:10px'>"
+              "<select id='batteryFilter' style='padding:6px;margin-right:10px'>"
+              "<option value='all'>Todas las baterías</option>"
+              "</select>"
+              "<button onclick='refreshHistory()'>Actualizar</button>"
+              "<button class='secondary' onclick='exportHistory()'>Exportar CSV</button>"
+              "</div>"
+              "<div style='max-height:300px;overflow-y:auto'>"
+              "<table id='historyTable' style='width:100%;border-collapse:collapse;font-size:12px'>"
+              "<thead style='background:#f8fafc;position:sticky;top:0'>"
+              "<tr><th style='padding:8px;border:1px solid #e2e8f0'>Hora</th>"
+              "<th style='padding:8px;border:1px solid #e2e8f0'>Batería</th>"
+              "<th style='padding:8px;border:1px solid #e2e8f0'>Balance (mV)</th>"
+              "<th style='padding:8px;border:1px solid #e2e8f0'>SOC (%)</th>"
+              "<th style='padding:8px;border:1px solid #e2e8f0'>Estado</th></tr>"
+              "</thead>"
+              "<tbody id='historyBody'>"
+              "<tr><td colspan='5' style='text-align:center;padding:20px;color:#6b7280'>Cargando histórico...</td></tr>"
+              "</tbody>"
+              "</table>"
+              "</div>"
+              "<div style='margin-top:10px;font-size:11px;color:#6b7280'>"
+              "Registros cada 15 minutos • Máximo 96 entradas (24 horas)"
+              "</div>"
+              "</div></div>");
+
     // Terminal
     html += F("<div class='card' style='margin-top:18px'>"
               "<div class='title'>Terminal BMS <span id='scroll-hint' style='font-size:11px;color:#6b7280;display:none'>← Desliza horizontalmente →</span></div>"
@@ -434,6 +466,77 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
         "tooltip.style.display = tooltipVisible ? 'block' : 'none';"
         "if(tooltipVisible) setTimeout(() => {tooltipVisible = false; tooltip.style.display = 'none';}, 3000);"
       "});"
+      
+      // Balance History Functions
+      "function toggleHistory(){"
+        "const section = document.getElementById('historySection');"
+        "if(section.style.display === 'none'){"
+          "section.style.display = 'block';"
+          "refreshHistory();"
+        "}else{"
+          "section.style.display = 'none';"
+        "}"
+      "}"
+      "async function refreshHistory(){"
+        "try{"
+          "const r = await fetch('/balance-history', {cache: 'no-store'});"
+          "if(!r.ok) return;"
+          "const data = await r.json();"
+          "displayHistory(data);"
+          "populateBatteryFilter(data);"
+        "}catch(e){console.error('Error loading history:', e);}"
+      "}"
+      "function displayHistory(data){"
+        "const tbody = document.getElementById('historyBody');"
+        "const filter = document.getElementById('batteryFilter').value;"
+        "tbody.innerHTML = '';"
+        "if(!data.data || data.data.length === 0){"
+          "tbody.innerHTML = '<tr><td colspan=\"5\" style=\"text-align:center;padding:20px;color:#6b7280\">No hay datos disponibles</td></tr>';"
+          "return;"
+        "}"
+        "const filteredData = filter === 'all' ? data.data : data.data.filter(d => d.batteryId == filter);"
+        "filteredData.slice(-48).reverse().forEach(entry => {"
+          "const date = new Date(entry.timestamp);"
+          "const time = date.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});"
+          "const status = entry.balanceMv <= 40 ? 'Normal' : entry.balanceMv <= 60 ? 'Advertencia' : 'Crítico';"
+          "const statusClass = entry.balanceMv <= 40 ? 'health-normal' : entry.balanceMv <= 60 ? 'health-warning' : 'health-critical';"
+          "tbody.innerHTML += '<tr>' +"
+            "'<td style=\"padding:6px;border:1px solid #e2e8f0\">' + time + '</td>' +"
+            "'<td style=\"padding:6px;border:1px solid #e2e8f0\">' + entry.batteryId + '</td>' +"
+            "'<td style=\"padding:6px;border:1px solid #e2e8f0\">' + entry.balanceMv + '</td>' +"
+            "'<td style=\"padding:6px;border:1px solid #e2e8f0\">' + entry.socPercent + '%</td>' +"
+            "'<td style=\"padding:6px;border:1px solid #e2e8f0\" class=\"' + statusClass + '\">' + status + '</td>' +"
+          "'</tr>';"
+        "});"
+      "}"
+      "function populateBatteryFilter(data){"
+        "const select = document.getElementById('batteryFilter');"
+        "const currentValue = select.value;"
+        "const batteries = [...new Set(data.data.map(d => d.batteryId))].sort((a,b) => a-b);"
+        "select.innerHTML = '<option value=\"all\">Todas las baterías</option>';"
+        "batteries.forEach(id => {"
+          "select.innerHTML += '<option value=\"' + id + '\">Batería ' + id + '</option>';"
+        "});"
+        "select.value = currentValue;"
+        "select.onchange = () => refreshHistory();"
+      "}"
+      "function exportHistory(){"
+        "fetch('/balance-history').then(r => r.json()).then(data => {"
+          "let csv = 'Timestamp,Battery ID,Balance (mV),SOC (%),Status\\n';"
+          "data.data.forEach(entry => {"
+            "const date = new Date(entry.timestamp);"
+            "const status = entry.balanceMv <= 40 ? 'Normal' : entry.balanceMv <= 60 ? 'Warning' : 'Critical';"
+            "csv += date.toISOString() + ',' + entry.batteryId + ',' + entry.balanceMv + ',' + entry.socPercent + ',' + status + '\\n';"
+          "});"
+          "const blob = new Blob([csv], {type: 'text/csv'});"
+          "const url = URL.createObjectURL(blob);"
+          "const a = document.createElement('a');"
+          "a.href = url;"
+          "a.download = 'balance_history_' + new Date().toISOString().split('T')[0] + '.csv';"
+          "a.click();"
+          "URL.revokeObjectURL(url);"
+        "});"
+      "}"
     "</script>");
 
     html += F("</main></body></html>");
@@ -944,6 +1047,50 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
     // Redirige para que la home embeba la última respuesta y el JS la pinte en la terminal
     server.sendHeader("Location", "/");
     server.send(303); });
+
+  // ---------- /balance-history: serve historical balance data ----------
+  server.on("/balance-history", [&server, batteryData]()
+            {
+    String json = "{\"data\":[";
+    bool first = true;
+    
+    // Get all valid entries from the history
+    for (uint8_t i = 0; i < batteryData->history.entryCount; i++) {
+      balanceHistoryEntry* entry = batteryData->history.getEntry(i);
+      if (entry && entry->isValid) {
+        if (!first) json += ",";
+        json += "{";
+        json += "\"timestamp\":" + String(entry->timestamp) + ",";
+        json += "\"batteryId\":" + String(entry->batteryId) + ",";
+        json += "\"balanceMv\":" + String(entry->balanceMv) + ",";
+        json += "\"socPercent\":" + String(entry->socPercent);
+        json += "}";
+        first = false;
+      }
+    }
+    
+    json += "],";
+    json += "\"totalEntries\":" + String(batteryData->history.entryCount) + ",";
+    json += "\"maxEntries\":" + String(MAX_BALANCE_HISTORY_ENTRIES) + ",";
+    json += "\"currentTime\":" + String(millis());
+    json += "}";
+    
+    server.send(200, "application/json", json); });
+
+  // ---------- /debug-history: debug endpoint for history status ----------
+  server.on("/debug-history", [&server, batteryData]()
+            {
+    String json = "{";
+    json += "\"currentTime\":" + String(millis()) + ",";
+    json += "\"lastSaveTime\":" + String(batteryData->history.lastSaveTime) + ",";
+    json += "\"timeSinceLastSave\":" + String(millis() - batteryData->history.lastSaveTime) + ",";
+    json += "\"shouldRecord\":" + String(batteryData->shouldRecordHistory(millis()) ? "true" : "false") + ",";
+    json += "\"currentIndex\":" + String(batteryData->history.currentIndex) + ",";
+    json += "\"entryCount\":" + String(batteryData->history.entryCount) + ",";
+    json += "\"maxEntries\":" + String(MAX_BALANCE_HISTORY_ENTRIES);
+    json += "}";
+    
+    server.send(200, "application/json", json); });
 }
 
 #endif //
