@@ -38,6 +38,12 @@ struct balanceHistory
     }
   }
 
+  // Clear all history data
+  void clear()
+  {
+    init(); // Reset all values
+  }
+
   // Add new entry to history
   void addEntry(uint8_t batteryId, int16_t balanceMv, uint8_t socPercent, unsigned long timestamp)
   {
@@ -141,13 +147,46 @@ struct batteryStack
   // Record balance data for all batteries
   void recordBalanceHistory(unsigned long currentTime)
   {
+    // Count how many batteries are actually present
+    int presentCount = 0;
     for (int i = 0; i < MAX_PYLON_BATTERIES_SUPPORTED; i++)
     {
       if (batts[i].isPresent)
       {
+        presentCount++;
+      }
+    }
+
+    Serial.print("[HISTORY DEBUG] Found ");
+    Serial.print(presentCount);
+    Serial.println(" batteries marked as present");
+
+    // Only record from batteries that are actually present and have valid data
+    for (int i = 0; i < MAX_PYLON_BATTERIES_SUPPORTED; i++)
+    {
+      if (batts[i].isPresent && batts[i].cellVoltHigh > 0 && batts[i].cellVoltLow > 0)
+      {
         int16_t balanceMv = (int16_t)(batts[i].cellVoltHigh - batts[i].cellVoltLow);
         uint8_t socPercent = (uint8_t)batts[i].soc;
+
+        Serial.print("[HISTORY DEBUG] Recording battery ");
+        Serial.print(i + 1);
+        Serial.print(": Balance=");
+        Serial.print(balanceMv);
+        Serial.print("mV, SOC=");
+        Serial.print(socPercent);
+        Serial.println("%");
+
         history.addEntry(i + 1, balanceMv, socPercent, currentTime);
+      }
+      else if (batts[i].isPresent)
+      {
+        Serial.print("[HISTORY DEBUG] Battery ");
+        Serial.print(i + 1);
+        Serial.print(" marked present but has invalid voltage data: High=");
+        Serial.print(batts[i].cellVoltHigh);
+        Serial.print(", Low=");
+        Serial.println(batts[i].cellVoltLow);
       }
     }
   }
@@ -155,10 +194,10 @@ struct batteryStack
   // Check if it's time to record (every 15 minutes)
   bool shouldRecordHistory(unsigned long currentTime)
   {
-    const unsigned long RECORD_INTERVAL = 15 * 60 * 1000; // 15 minutes for production
+    const unsigned long RECORD_INTERVAL = 15 * 60; // 15 minutes in seconds (for Unix timestamp)
 
-    // Force first record after 30 seconds of startup
-    if (history.lastSaveTime == 0 && currentTime > 30000)
+    // Force first record if lastSaveTime is 0 or seems invalid (Unix timestamp should be > 1000000000)
+    if (history.lastSaveTime == 0 || history.lastSaveTime < 1000000000)
     {
       return true;
     }
@@ -243,6 +282,31 @@ struct batteryStack
 #else
     history.init();
     return false; // Not implemented for ESP32 yet
+#endif
+  }
+
+  // Clear balance history from memory and delete from flash
+  bool clearBalanceHistory()
+  {
+#ifdef ESP8266
+    if (!LittleFS.begin())
+    {
+      return false;
+    }
+
+    // Delete the file from flash
+    if (LittleFS.exists("/balance_history.dat"))
+    {
+      LittleFS.remove("/balance_history.dat");
+    }
+
+    // Clear memory
+    history.clear();
+
+    return true;
+#else
+    history.clear();
+    return true;
 #endif
   }
 

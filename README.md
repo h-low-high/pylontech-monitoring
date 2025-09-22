@@ -7,9 +7,21 @@ Sistema completo de monitoreo para baterías Pylontech usando ESP32/ESP8266 con 
 
 
 
-
-
 ## Instalación y Configuración
+
+### Librerías Requeridas:
+**IMPORTANTE:** Antes de compilar, instalar estas librerías en Arduino IDE:
+
+1. **NTPClient** by Fabrice Weinberg
+   - Versión recomendada: 3.2.1 o superior
+   - Para sincronización de tiempo vía NTP
+   - Instalación: Tools > Manage Libraries > Buscar "NTPClient"
+
+2. **LittleFS** (incluida con ESP8266/ESP32 Core)
+   - Para almacenamiento persistente del historial
+
+3. **ESP8266WiFi** o **WiFi** (incluidas con Core)
+   - Para conectividad WiFi
 
 ### Requisitos:
 - ESP32 o ESP8266
@@ -27,6 +39,10 @@ Sistema completo de monitoreo para baterías Pylontech usando ESP32/ESP8266 con 
 - Mini RX → R1OUT del MAX3232  
 - Mini GND → GND del MAX3232
 - Mini 3.3V → VCC del MAX3232
+
+**NOTA: para programar la primera vez con arduino IDE, desconecta el positivo por ejemplo del modulo max3232 contra el ESP, si no no funcionará. Posteriormente programa via OTA. 
+Se debe a la gestion de puertos, no es posible usar los UART de placa de arduino y el USB.
+   
 
 **Conexiones MAX3232 → RJ45 (Topología B):**
 - R1IN del MAX3232 → Pin 3 (Blanco/Verde) - RX desde Pylontech
@@ -104,21 +120,21 @@ Para proteger la interfaz web con usuario y contraseña:
 | `MQTT_PUSH_FREQ_SEC` | PylontechMonitoring.h | Frecuencia envío datos (segundos) | `10` |
 
 
-## 📡 Portal Cautivo WiFi - Configuración Automática
+## Portal Cautivo WiFi - Configuración Automática
 
 El sistema incluye un **portal cautivo WiFi** que facilita la configuración inicial y permite cambiar las credenciales sin necesidad de reprogramar el dispositivo.
 
-![alt text](<8b.jpg>)
-![alt text](<b1.jpg>)
+<img src="8b.jpg" alt="Configuración WiFi Portal Cautivo" width="400">
+<img src="b1.jpg" alt="Interfaz de Configuración" width="400">
 
-### 🚀 Funcionamiento Automático
+### Funcionamiento Automático
 
 #### Secuencia de Conexión Inteligente:
-1. **📱 Configuración Guardada** - Intenta conectar con credenciales almacenadas previamente
-2. **🔄 Fallback Hardcoded** - Si falla, usa la configuración definida en el código (`WIFI_SSID`, `WIFI_PASS`)
-3. **📡 Portal de Configuración** - Si todo falla, abre un Access Point para configurar
+1. **Configuración Guardada** - Intenta conectar con credenciales almacenadas previamente
+2. **Fallback Hardcoded** - Si falla, usa la configuración definida en el código (`WIFI_SSID`, `WIFI_PASS`)
+3. **Portal de Configuración** - Si todo falla, abre un Access Point para configurar
 
-### 🔧 Acceso al Portal de Configuración
+### Acceso al Portal de Configuración
 
 Cuando el dispositivo no puede conectarse a ninguna WiFi:
 
@@ -128,33 +144,33 @@ Cuando el dispositivo no puede conectarse a ninguna WiFi:
 | **IP del Portal** | `192.168.4.1` |
 | **Duración del AP** | 5 minutos (luego se reinicia) |
 
-### 📱 Instrucciones de Uso
+### Instrucciones de Uso
 
 #### Primera Configuración:
-1. 🔌 **Encender el dispositivo** (primera vez o sin configuración guardada)
-2. 📶 **Buscar WiFi "ESP_XXXXXX"** en tu teléfono/computadora (donde XXXXXX son los últimos 6 dígitos de la MAC del ESP)
-3. 🔐 **Conectar con contraseña "1234" si precisa** 
-4. 🌐 **Abrir cualquier página web** - serás redirigido automáticamente
-5. ⚙️ **Configurar tu WiFi** en la interfaz web
-6. 💾 **Guardar y esperar reinicio**
+1. **Encender el dispositivo** (primera vez o sin configuración guardada)
+2. **Buscar WiFi "ESP_XXXXXX"** en tu teléfono/computadora (donde XXXXXX son los últimos 6 dígitos de la MAC del ESP)
+3. **Conectar con contraseña "1234" si precisa** 
+4. **Abrir cualquier página web** - serás redirigido automáticamente
+5. **Configurar tu WiFi** en la interfaz web
+6. **Guardar y esperar reinicio**
 
 #### Cambiar Configuración WiFi:
 - Mismo proceso que la primera configuración
 - Se activa automáticamente si no puede conectar a la red configurada
 
-### 🌐 Interfaz de Configuración
+### Interfaz de Configuración
 
 La página de configuración incluye:
 
-#### ✅ **Funcionalidades:**
-- 🔍 **Escáner de redes** - Busca y lista todas las WiFi disponibles
-- 📶 **Indicador de señal** - Muestra la intensidad de cada red
-- 🔒 **Detección de seguridad** - Indica redes abiertas/protegidas
-- 👆 **Selección fácil** - Click en cualquier red para autocompletar SSID
-- ⚙️ **Configuración IP** - DHCP automático o IP estática personalizada
-- 💾 **Almacenamiento persistente** - Las credenciales sobreviven reinicios
+#### **Funcionalidades:**
+- **Escáner de redes** - Busca y lista todas las WiFi disponibles
+- **Indicador de señal** - Muestra la intensidad de cada red
+- **Detección de seguridad** - Indica redes abiertas/protegidas
+- **Selección fácil** - Click en cualquier red para autocompletar SSID
+- **Configuración IP** - DHCP automático o IP estática personalizada
+- **Almacenamiento persistente** - Las credenciales sobreviven reinicios
 
-#### 📋 **Campos de Configuración:**
+#### **Campos de Configuración:**
 - **SSID** - Nombre de la red WiFi
 - **Contraseña** - Clave de la red (opcional para redes abiertas)
 - **Tipo IP** - DHCP (automático) o IP estática
@@ -163,54 +179,18 @@ La página de configuración incluye:
 - **Máscara de subred** - Normalmente 255.255.255.0
 - **DNS** - Servidor DNS (ej: 8.8.8.8)
 
-### 🔄 Gestión de Configuraciones
+### Gestión de Configuraciones
 
 #### **Prioridad de Conexión:**
-1. 🥇 **Configuración del portal** (almacenada en LittleFS)
-2. 🥈 **Configuración hardcoded** (definida en `PylontechMonitoring.h`)
-3. 🥉 **Modo AP de configuración** (si ambas fallan)
+1. **Configuración del portal** (almacenada en LittleFS)
+2. **Configuración hardcoded** (definida en `PylontechMonitoring.h`)
+3. **Modo AP de configuración** (si ambas fallan)
 
 #### **Recuperación Automática:**
-- ⚡ **Reconexión automática** si se pierde la conexión WiFi
-- 🔄 **Reintentos inteligentes** con diferentes configuraciones
-- 📡 **Fallback a AP** si no se puede conectar tras varios intentos
+- **Reconexión automática** si se pierde la conexión WiFi
+- **Reintentos inteligentes** con diferentes configuraciones
+- **Fallback a AP** si no se puede conectar tras varios intentos
 
-### 💾 Almacenamiento de Configuración
-
-Las credenciales se guardan en:
-- **Sistema de archivos:** LittleFS
-- **Archivo:** `/wifi_config.dat`
-- **Persistencia:** Sobrevive reinicios, actualizaciones OTA
-- **Seguridad:** Almacenado localmente en el ESP32
-
-### 🛠️ Solución de Problemas
-
-#### **Si el portal no aparece:**
-- Verificar que no hay configuración WiFi válida
-- Esperar 30 segundos tras encender
-- Buscar red "ESP_XXXXXX" (donde XXXXXX son los últimos 6 dígitos de la MAC)
-
-#### **Si no redirige automáticamente:**
-- Navegar manualmente a `http://192.168.4.1`
-- Verificar que está conectado al AP "ESP_XXXXXX"
-
-#### **Para forzar modo configuración:**
-- Borrar archivo `/wifi_config.dat` del sistema
-- O mantener botón RESET 10 segundos tras encender
-
-#### **Restablecer configuración:**
-```cpp
-// En setup(), agregar una vez:
-LittleFS.remove("/wifi_config.dat");
-```
-
-### ⚠️ Notas Importantes
-
-- 🔐 **Seguridad:** Cambiar la contraseña del AP en `wifiConfig.cpp` para mayor seguridad
-- 📱 **Nombre del AP:** Cada dispositivo tendrá un nombre único "ESP_XXXXXX" basado en su MAC address
-- ⏰ **Timeout:** El AP se cierra automáticamente tras 5 minutos sin configurar
-- 🔄 **Reinicio:** El dispositivo se reinicia automáticamente tras guardar configuración
-- 📱 **Compatibilidad:** Funciona con cualquier dispositivo WiFi (móvil, tablet, PC)
 
 ## Ejemplos de Configuración
 
@@ -265,33 +245,6 @@ const char* www_password = "mipassword123";  // ¡Cambiar por una contraseña se
 // En PylontechMonitor_ESP32E_Display.ino (línea ~90)
 ArduinoOTA.setPassword("mi_ota_password_seguro");  // ¡Cambiar por contraseña segura!
 ```
-
-## Características Principales
-
-### Dashboard Web Responsive
-- **Dashboard Principal:** Vista general del sistema completo
-- **Selector de Módulos:** Botones dinámicos para monitorear baterías individuales
-- **Terminal BMS:** Output en tiempo real con colores y scroll horizontal
-- **Diseño Mobile-First:** Optimizado para smartphones y tablets
-
-### Monitoreo Multi-Batería
-- **Detección Automática:** Identifica automáticamente qué módulos están conectados
-- **Vista Sistema:** Datos consolidados de todas las baterías
-- **Vista Individual:** Monitoreo específico por módulo
-- **Cambio Dinámico:** Botones para alternar entre diferentes baterías
-
-### Terminal BMS Avanzado
-- **Colorización por Datos:**
-  - Verde: Voltajes y estados normales
-  - Naranja: Corrientes y potencia
-  - Rojo: Temperaturas
-  - Púrpura: Estado de carga (SOC)
-  - Azul: Números y valores
-  - Gris: Estados inactivos/ausentes
-
-- **Scroll Horizontal:** Para dispositivos móviles con hint visual
-- **Formato Tabular:** Datos organizados y fáciles de leer
-- **Actualización Automática:** Cada 3 segundos
 
 ### Análisis de Salud de Baterías
 Sistema proactivo de monitoreo específico para baterías LiFePO4:
@@ -380,243 +333,43 @@ Sistema proactivo de monitoreo específico para baterías LiFePO4:
 - **Timeout:** 5 segundos por comando
 - **Buffer:** Optimizado para respuestas largas
 
-### Servidor Web:
-- **Puerto:** 80 (HTTP)
-- **Endpoints:**
-  - `/` - Interfaz principal
-  - `/battery-data` - Datos JSON del sistema
-  - `/battery-data?module=X` - Datos JSON módulo específico
-  - `/modules` - Lista de módulos detectados
 
-### Gestión de Memoria:
-- **String Buffers:** Optimizados para ESP32/ESP8266
-- **Cache:** Sin cache para datos en tiempo real
-- **CORS:** Configurado para desarrollo
-
-## 📊 Histórico de Balance (72 Horas)
+## Histórico de Balance (72 Horas)
 
 El sistema incluye un **sistema de registro histórico** que almacena automáticamente los datos de balance de las baterías para análisis de tendencias y monitoreo a largo plazo.
+![alt text](image.png)
 
-### 🎯 Características del Histórico
+### Características del Histórico
+
+#### **Sincronización de Tiempo:**
+- **Sincronización NTP automática** con pool.ntp.org
+- **Zona horaria configurada** para Madrid, España (UTC+2 CEST - horario de verano)
+- **Resincronización cada hora** para mantener precisión
+- **Timestamps Unix reales** en lugar de tiempo relativo
+- **Endpoint `/time-info`** para verificar estado del tiempo
 
 #### **Datos Registrados Automáticamente:**
-- 🔋 **ID de Batería** (1-16)
-- ⚡ **Diferencia de Balance** en mV (voltaje máximo - mínimo por batería)
-- 🔋 **Estado de Carga (SOC)** en porcentaje
-- ⏰ **Timestamp** con fecha y hora exacta
+- **ID de Batería** (1-16)
+- **Diferencia de Balance** en mV (voltaje máximo - mínimo por batería)
+- **Estado de Carga (SOC)** en porcentaje
+- **Timestamp** con fecha y hora exacta (tiempo real NTP)
 
-#### **Configuración de Almacenamiento:**
-| Parámetro | Valor | Descripción |
-|-----------|-------|-------------|
-| **Frecuencia de Registro** | 15 minutos | Captura automática cada 15 min |
-| **Capacidad Máxima** | 288 entradas | 72 horas completas de datos |
-| **Tipo de Buffer** | Circular | Los datos antiguos se sobrescriben |
-| **Persistencia** | LittleFS | Datos sobreviven reinicios |
-| **Archivo de Datos** | `/balance_history.dat` | Almacenamiento binario optimizado |
-| **Respaldo Automático** | Cada hora | 4 registros = 1 respaldo a flash |
 
-### 🌐 Interfaz Web del Histórico
-
-#### **Acceso a la Información:**
-- **Ubicación:** Sección "Histórico de Balance (72h)" en la página principal
-- **Visibilidad:** Botón "Mostrar/Ocultar" para expandir la sección
-- **Actualización:** Botón "Actualizar" para recargar datos más recientes
-
-#### **Funcionalidades de la Tabla:**
-- ✅ **Tabla Scrolleable** - Ver hasta 288 entradas con scroll vertical
-- ✅ **Filtro por Batería** - Dropdown para mostrar solo una batería específica
-- ✅ **Código de Colores** - Estados visuales (Normal/Advertencia/Crítico)
-- ✅ **Exportación CSV** - Descargar datos para análisis externo
-- ✅ **Formato Responsive** - Adaptado para móviles y tablets
-
-#### **Columnas de Información:**
-| Columna | Descripción | Ejemplo |
-|---------|-------------|---------|
-| **Hora** | Timestamp del registro | `14:30` |
-| **Batería** | ID del módulo | `1`, `2`, `3`... |
-| **Balance (mV)** | Diferencia de voltaje entre celdas | `25`, `45`, `67` |
-| **SOC (%)** | Estado de carga en ese momento | `85%`, `92%` |
-| **Estado** | Evaluación automática | Normal/Advertencia/Crítico |
-
-### 🔄 API REST del Histórico
-
-#### **Endpoint de Datos:**
-```
-GET /balance-history
-```
-
-#### **Respuesta JSON:**
-```json
-{
-  "data": [
-    {
-      "timestamp": 1695654000000,
-      "batteryId": 1,
-      "balanceMv": 25,
-      "socPercent": 85
-    },
-    {
-      "timestamp": 1695654900000,
-      "batteryId": 2,
-      "balanceMv": 45,
-      "socPercent": 84
-    }
-  ],
-  "totalEntries": 144,
-  "maxEntries": 288,
-  "currentTime": 1695654000000
-}
-```
-
-### 📈 Análisis y Monitoreo
-
-#### **Patrones Detectables:**
-- 🔍 **Tendencias de Degradación** - Aumento progresivo del desbalance
-- ⚠️ **Problemas Emergentes** - Celdas que comienzan a desbalancearse
-- 📊 **Correlación SOC-Balance** - Relación entre carga y equilibrio
-- 📈 **Ciclos Completos** - Monitoreo de múltiples ciclos de carga/descarga
-- 🔄 **Patrones Diarios** - Comparación entre días consecutivos
-- ⏰ **Horarios Críticos** - Identificación de momentos problemáticos
-
-#### **Ventajas de 72 Horas:**
-- **📅 3 Días Completos** - Análisis de tendencias a corto/medio plazo
-- **🔄 Múltiples Ciclos** - Observar varios ciclos de carga completos
-- **📊 Comparación Temporal** - Ver el mismo horario en diferentes días
-- **⚡ Detección Temprana** - Identificar problemas antes que se agraven
-- **📈 Memoria Eficiente** - Solo ~2.8KB de RAM para 288 entradas
-- 🕒 **Comportamiento Temporal** - Patrones según hora del día
-
+¡
 #### **Alertas Visuales:**
-- 🟢 **Normal (≤40mV)** - Verde, funcionamiento óptimo
-- 🟡 **Advertencia (40-60mV)** - Amarillo, revisar pronto
-- 🔴 **Crítico (>60mV)** - Rojo, atención inmediata requerida
-
-### 💾 Gestión de Datos
-
-#### **Almacenamiento Local:**
-- **Ubicación:** Flash interna del ESP32/ESP8266
-- **Formato:** Binario optimizado para eficiencia
-- **Compresión:** Estructura compacta para maximizar entradas
-- **Integridad:** Verificación de validez en cada lectura
-
-#### **Mantenimiento Automático:**
-- **Limpieza:** Buffer circular automático
-- **Optimización:** Respaldos cada hora para evitar pérdidas
-- **Recuperación:** Carga automática al reiniciar
-
-### 🛠️ Configuración Avanzada
-
-#### **Modificar Intervalo de Registro:**
-En `batteryStack.h`, línea ~42:
-```cpp
-const unsigned long RECORD_INTERVAL = 15 * 60 * 1000; // 15 minutos
-```
-
-#### **Cambiar Capacidad del Buffer:**
-En `batteryStack.h`, línea ~9:
-```cpp
-#define MAX_BALANCE_HISTORY_ENTRIES 288 // 72 horas x 4 por hora
-```
-
-#### **Personalizar Respaldos:**
-En el archivo principal, función `loop()`:
-```cpp
-if (saveCounter >= 4) { // Cada 4 registros = 1 hora
-    // Cambiar a 2 para respaldar cada 30 min
-    // Cambiar a 8 para respaldar cada 2 horas
-}
-```
-
-### 📊 Casos de Uso
-
-#### **Mantenimiento Preventivo:**
-- Identificar baterías que comienzan a desbalancearse
-- Programar balanceos antes de que se vuelvan críticos
-- Detectar patrones de degradación temprana
-
-#### **Análisis de Rendimiento:**
-- Correlacionar desbalance con ciclos de carga/descarga
-- Evaluar efectividad de balanceos realizados
-- Optimizar rutinas de mantenimiento
-
-#### **Documentación y Reportes:**
-- Exportar datos históricos para análisis externo
-- Generar reportes de salud del sistema
-- Mantener registros para garantías y seguimiento
+- **Normal (≤40mV)** - Verde, funcionamiento óptimo
+- **Advertencia (40-60mV)** - Amarillo, revisar pronto
+- **Crítico (>60mV)** - Rojo, atención inmediata requerida
 
 
-## Personalización
+#### **Limpieza Manual de Datos:**
+Para borrar completamente el histórico de balance almacenado:
 
-### Umbrales de Salud:
-Modificar en `webInterface.h` líneas ~545-560:
-```cpp
-// Umbrales para baterías LiFePO4
-if (imbalanceMv <= 40) {
-  balanceStatus = "Normal";
-} else if (imbalanceMv <= 60) {
-  balanceStatus = "Advertencia"; 
-} else {
-  balanceStatus = "Crítico";
-}
-```
+- **URL de Limpieza:** `http://IP_DEL_ESP32/clear-history`
+- **Función:** Elimina todos los datos históricos del sistema de archivos
+**Nota:** Esta acción no se puede deshacer. Los datos eliminados no son recuperables.
 
-### Colores del Terminal:
-Modificar en CSS líneas ~153-161:
-```css
-.terminal .voltage{color:#10b981}    /* Verde */
-.terminal .current{color:#f59e0b}    /* Naranja */
-.terminal .temperature{color:#ef4444} /* Rojo */
-```
 
-### Intervalos de Actualización:
-Modificar en JavaScript:
-```javascript
-setInterval(pull, 3000); // 3 segundos
-```
-
-## Soporte y Troubleshooting
-
-### Problemas Comunes:
-
-1. **"Corriente 0.000 A":**
-   - Solucionado: Parsing mejorado del comando `pwrsys`
-
-2. **Terminal no responsive:**
-   - Solucionado: Scroll horizontal automático en móviles
-
-3. **Datos de temperatura inconsistentes:**
-   - Solucionado: Promedio calculado desde comando `bat`
-
-4. **No se detectan módulos:**
-   - Verificar conexiones seriales
-   - Comprobar que las baterías respondan al comando `pwr`
-
-5. **No se conecta a WiFi:**
-   - Verificar SSID y contraseña en la configuración
-   - Comprobar que la red esté disponible
-   - Revisar el monitor serie para mensajes de conexión
-
-6. **Página web no carga:**
-   - Verificar que el ESP32 esté conectado a WiFi
-   - Comprobar la IP asignada en el monitor serie
-   - Intentar acceso desde la misma red
-
-### Debug:
-- Usar monitor serie de Arduino IDE
-- Verificar respuestas de comandos BMS
-- Comprobar conectividad WiFi
-- Revisar logs de conexión en monitor serie
-
-## Mejoras Implementadas
-
-- Interfaz multi-batería responsive
-- Terminal colorizado y scrolleable
-- Análisis de salud proactivo
-- Optimización móvil completa
-- Tooltip informativo con detalles de celdas
-- Balance de celdas por módulo individual
-- Detección automática de módulos
-- Colores específicos por tipo de dato
 
 ## Versión
 

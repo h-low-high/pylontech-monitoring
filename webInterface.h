@@ -185,6 +185,8 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
       "input[type=text]{flex:1;min-width:220px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px}"
       "button{padding:10px 14px;border:0;border-radius:10px;font-weight:700;cursor:pointer;background:#0ea5e9;color:#fff}"
       "button.secondary{background:#f1f5f9;color:#0f172a}"
+      "button.danger{background:#ef4444;color:#fff}"
+      "button.danger:hover{background:#dc2626}"
       "button.quick-cmd{padding:6px 12px;margin:2px;background:#4f46e5;color:#fff;font-size:13px;font-weight:600}"
       "button.quick-cmd:hover{background:#6366f1}"
       "button.module{padding:8px 12px;margin:4px;border-radius:8px;font-size:13px;font-weight:600}"
@@ -259,12 +261,13 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
               "<button class='secondary' style='float:right;padding:4px 8px;font-size:12px' onclick='toggleHistory()'>Mostrar/Ocultar</button>"
               "</div>"
               "<div id='historySection' style='display:none'>"
-              "<div class='row' style='margin-bottom:10px'>"
-              "<select id='batteryFilter' style='padding:6px;margin-right:10px'>"
+              "<div class='row' style='margin-bottom:10px;display:flex;align-items:center;gap:10px'>"
+              "<select id='batteryFilter' style='padding:6px'>"
               "<option value='all'>Todas las baterías</option>"
               "</select>"
               "<button onclick='refreshHistory()'>Actualizar</button>"
               "<button class='secondary' onclick='exportHistory()'>Exportar CSV</button>"
+              "<button class='danger' onclick='clearHistory()'>Vaciar Historial</button>"
               "</div>"
               "<div style='max-height:300px;overflow-y:auto'>"
               "<table id='historyTable' style='width:100%;border-collapse:collapse;font-size:12px'>"
@@ -536,6 +539,24 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
           "a.click();"
           "URL.revokeObjectURL(url);"
         "});"
+      "}"
+      "function clearHistory(){"
+        "if(confirm('¿Estás seguro de que quieres vaciar todo el historial?\\n\\nEsta acción NO se puede deshacer.')){"
+          "if(confirm('CONFIRMACIÓN FINAL: Se eliminarán TODOS los datos históricos permanentemente.')){"
+            "fetch('/clear-history', {method: 'POST'})"
+            ".then(response => {"
+              "if(response.ok){"
+                "alert('Historial vaciado correctamente');"
+                "refreshHistory();"
+              "}else{"
+                "alert('Error al vaciar el historial');"
+              "}"
+            "})"
+            ".catch(error => {"
+              "alert('Error de conexión: ' + error);"
+            "});"
+          "}"
+        "}"
       "}"
     "</script>");
 
@@ -1091,6 +1112,118 @@ void setupWebInterface(WebServer &server, batteryStack *batteryData)
     json += "}";
     
     server.send(200, "application/json", json); });
+
+  // ---------- /record-now: force immediate balance recording ----------
+  server.on("/record-now", [&server, batteryData]()
+            {
+    unsigned long currentTime = millis();
+    
+    // Call the real recording function instead of dummy data
+    batteryData->recordBalanceHistory(currentTime);
+    batteryData->updateLastSaveTime(currentTime);
+    
+    // Completely different response to ensure we detect the change
+    String response = "{\"status\":\"OK\",\"action\":\"REAL_DATA_RECORDED\",\"version\":\"2024_UPDATE\",\"timestamp\":" + String(currentTime) + ",\"entries\":" + String(batteryData->history.entryCount) + "}";
+    
+    server.send(200, "application/json", response); });
+
+  // ---------- /clear-history: clear all balance history ----------
+  server.on("/clear-history", [&server, batteryData]()
+            {
+    bool success = batteryData->clearBalanceHistory();
+    
+    String response = "{\"status\":\"" + String(success ? "success" : "error") + "\"";
+    response += ",\"message\":\"" + String(success ? "History cleared successfully" : "Failed to clear history") + "\"";
+    response += ",\"entryCount\":" + String(batteryData->history.entryCount);
+    response += ",\"currentTime\":" + String(millis()) + "}";
+    
+    server.send(200, "application/json", response); });
+
+  // ---------- /restart: restart ESP32 remotely ----------
+  server.on("/restart", [&server]()
+            {
+    server.send(200, "text/html", 
+      "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Reiniciando ESP32</title>"
+      "<style>body{font-family:Arial,sans-serif;text-align:center;padding:50px;background:#f0f0f0;}"
+      ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 4px 6px rgba(0,0,0,0.1);max-width:400px;margin:0 auto;}"
+      ".warning{color:#e74c3c;font-size:18px;margin:20px 0;}"
+      ".info{color:#3498db;margin:15px 0;}"
+      ".countdown{font-size:24px;font-weight:bold;color:#e67e22;}"
+      "</style>"
+      "<script>"
+      "let countdown = 10;"
+      "function updateCountdown(){"
+        "document.getElementById('counter').textContent = countdown;"
+        "countdown--;"
+        "if(countdown < 0){"
+          "window.location.href = '/';"
+        "}"
+      "}"
+      "setInterval(updateCountdown, 1000);"
+      "</script></head><body>"
+      "<div class='container'>"
+      "<h2>🔄 Reiniciando ESP32</h2>"
+      "<div class='warning'>⚠️ El dispositivo se está reiniciando</div>"
+      "<div class='info'>El sistema volverá a estar disponible en unos segundos</div>"
+      "<div class='countdown'>Redirigiendo en <span id='counter'>10</span> segundos...</div>"
+      "<div style='margin-top:20px;'><a href='/'>Volver al inicio</a></div>"
+      "</div></body></html>");
+    
+    delay(1000); // Give time for response to be sent
+    ESP.restart(); });
+
+  // ---------- /version-check: verify code version ----------
+  server.on("/version-check", [&server]()
+            {
+    String response = "{\"codeVersion\":\"2024_DECEMBER_UPDATE\",\"timestamp\":" + String(millis()) + ",\"status\":\"CODE_UPDATED_SUCCESSFULLY\"}";
+    server.send(200, "application/json", response); });
+
+  // ---------- /debug-batteries: check battery array status ----------
+  server.on("/debug-batteries", [&server, batteryData]()
+            {
+    String response = "{\"batteries\":[";
+    bool first = true;
+    
+    for (int i = 0; i < MAX_PYLON_BATTERIES_SUPPORTED; i++) {
+      if (!first) response += ",";
+      response += "{";
+      response += "\"id\":" + String(i + 1) + ",";
+      response += "\"isPresent\":" + String(batteryData->batts[i].isPresent ? "true" : "false") + ",";
+      response += "\"soc\":" + String(batteryData->batts[i].soc) + ",";
+      response += "\"voltage\":" + String(batteryData->batts[i].voltage) + ",";
+      response += "\"cellVoltHigh\":" + String(batteryData->batts[i].cellVoltHigh) + ",";
+      response += "\"cellVoltLow\":" + String(batteryData->batts[i].cellVoltLow) + ",";
+      response += "\"current\":" + String(batteryData->batts[i].current) + ",";
+      response += "\"temperature\":" + String(batteryData->batts[i].tempr);
+      response += "}";
+      first = false;
+    }
+    
+    response += "],";
+    response += "\"totalBatteries\":" + String(MAX_PYLON_BATTERIES_SUPPORTED) + ",";
+    response += "\"timestamp\":" + String(millis());
+    response += "}";
+    
+    server.send(200, "application/json", response); });
+
+  // ---------- /time-info: show current time and NTP status ----------
+  server.on("/time-info", [&server]()
+            {
+    extern NTPClient timeClient;
+    extern unsigned long lastNtpSync;
+    extern bool wifiConnected;
+    extern unsigned long getCurrentTimestamp();
+    
+    String response = "{";
+    response += "\"wifiConnected\":" + String(wifiConnected ? "true" : "false") + ",";
+    response += "\"ntpInitialized\":" + String(timeClient.isTimeSet() ? "true" : "false") + ",";
+    response += "\"currentTimestamp\":" + String(getCurrentTimestamp()) + ",";
+    response += "\"formattedTime\":\"" + timeClient.getFormattedTime() + "\",";
+    response += "\"lastNtpSync\":" + String(lastNtpSync) + ",";
+    response += "\"millis\":" + String(millis());
+    response += "}";
+    
+    server.send(200, "application/json", response); });
 }
 
 #endif //
