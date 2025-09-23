@@ -192,7 +192,7 @@ Sistema proactivo de monitoreo específico para baterías LiFePO4:
 #### Capturas de Pantalla:
  ![alt text](web-1.png) ![alt text](command-1.png) ![alt text](inform-1.png)
 
-## Histórico de Balance (72 Horas)
+## Histórico de Balance (72 Horas)  [en progreso. NO PUBLICADO]
 
 El sistema incluye un **sistema de registro histórico** que almacena automáticamente los datos de balance de las baterías para análisis de tendencias y monitoreo a largo plazo.
 ![alt text](image.png)
